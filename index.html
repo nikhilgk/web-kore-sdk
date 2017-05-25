@@ -1,0 +1,121 @@
+<!DOCTYPE>
+<html>
+	<head>
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=0.1, maximum-scale=1.0">
+		<script src="libs/jquery.js" type="text/javascript"></script>
+		<script src="libs/jquery.tmpl.min.js" type="text/javascript"></script>
+		<script src="libs/jquery-ui.min.js" type="text/javascript"></script>
+		<script type="text/javascript" src="libs/hmac-sha256.js"></script>
+		<script type="text/javascript" src="libs/enc-base64-min.js"></script>
+<!-- 		<script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/3.1.9-1/hmac-sha256.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/3.1.9-1/enc-base64.min.js"></script>		
+ -->		
+		<link href="libs/jquery-ui.min.css" rel="stylesheet"></link>
+
+		<script src="libs/lodash.min.js"></script>
+		<script src='libs/anonymousassertion.js'></script>
+		<script src="libs/kore-bot-sdk-client.js"></script>
+		<script src="libs/chatWindow.js" type="text/javascript"></script>
+		<script src="libs/emoji.js" type="text/javascript"></script>
+		<script src="libs/recorder.js" type="text/javascript"></script>
+		<script src="libs/recorderWorker.js" type="text/javascript"></script>
+		<link href="libs/chatWindow.css" rel="stylesheet"></link>
+		<link href="libs/emojione.sprites.css" rel="stylesheet"></link>
+		<script type="text/javascript">
+
+			function generateJWT(body, secret) {
+			  header = {
+			    "alg": "HS256",
+			    "typ": "JWT"
+			  }
+
+			  var token = []
+			  token[0] = base64url(JSON.stringify(header))
+			  token[1] = base64url(JSON.stringify(body))
+			  token[2] = genTokenSign(token, secret)
+			  return token.join(".");
+			}
+
+			function genTokenSign(token, secret) {
+			  if (token.length != 2) {
+			    return
+			  }
+			  var hash = CryptoJS.HmacSHA256(token.join("."), secret);
+			  var base64Hash = CryptoJS.enc.Base64.stringify(hash);
+			  return urlConvertBase64(base64Hash);
+			}
+
+
+			function base64url(input) {
+			  var base64String = btoa(input);
+			  return urlConvertBase64(base64String);
+			}
+			function urlConvertBase64(input) {
+			  var output = input.replace(/=+$/, '');
+			  output = output.replace(/\+/g, '-');
+			  output = output.replace(/\//g, '_');
+			  return output;
+			}
+
+
+			function koreGenerateUUID() {
+			    console.info("generating UUID");
+			    var d = new Date().getTime();
+			    if (window.performance && typeof window.performance.now === "function") {
+			        d += performance.now(); //use high-precision timer if available
+			    }
+			    var uuid = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+			        var r = (d + Math.random() * 16) % 16 | 0;
+			        d = Math.floor(d / 16);
+			        return (c == 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+			    });
+			    return uuid;
+			}
+			$(document).on("ready", function () {
+				function assertion(options, callback) {
+				    var korecookie = localStorage.getItem("korecom");
+				    var uuid = (korecookie) || koreGenerateUUID();
+				    console.log(options);
+				    localStorage.setItem("korecom", uuid);
+				    var time_now = Math.floor(new Date().getTime() / 1000)
+				    var exp = time_now + 60*60*24
+				    var jsonData = {"iat":time_now,"exp":exp,"aud":"https://idproxy.kore.com/authorize","iss":options.clientId,"sub":uuid,"isAnonymous":"true"}
+		            options.assertion = generateJWT(jsonData,options.secret)
+		            console.log(options.assertion)
+		            callback(null, options);
+				}
+
+				var botOptions = {};
+				botOptions.logLevel = 'debug';
+				botOptions.koreAPIUrl = "http://------------/api/";
+				botOptions.bearer = "bearer xyz-------------------";
+				botOptions.speechSocketUrl = 'wss://speech.kore.ai/stream/kore/decode';
+				botOptions.userIdentity = 'userIdentity';// Provide users email id here
+				botOptions.recorderWorkerPath = '../libs/recorderWorker.js';
+				botOptions.assertionFn = assertion;
+				botOptions.koreAnonymousFn = koreAnonymousFn;
+				botOptions.clientId   = "cs-"; // secure client-id
+				botOptions.secret   = "=";//secret
+
+				botOptions.botInfo = {name:" Bot","_id":"st-"}; 
+				var chatConfig={
+					botOptions:botOptions,
+					allowIframe: false,
+					isSendButton: false
+				};
+				var koreBot = koreBotChat();
+				koreBot.show(chatConfig);
+				$('.openChatWindow').click(function () {
+					koreBotChat().show(chatConfig);
+				});
+			});
+		</script>
+	</head>
+
+	<body>
+		<div id="chatContainer">
+			<button class="openChatWindow">Open Chat Window</button>
+		</div>
+	</body>
+
+</html>
